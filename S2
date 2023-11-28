@@ -1,1 +1,164 @@
+""" The needed libraries """
+import subprocess
+import numpy as np
+import cv2
 
+"""
+This class contains the first 3 exercises of the seminar 2
+"""
+class seminar2:
+
+
+  def __init__(self, input_path, output_path):
+    self.input_path = input_path
+    self.output_path = output_path
+
+  """
+  cut_video_method extract from the video path the video between the start
+  and the time asked and add to these video the macroblocks and the movements
+  vectors.
+
+  INPUT:
+    - (float) start -> second where start the extraction
+    - (float) duration -> how long is the extraction of the video
+  OUTPUT:
+    - saved the video in the ouput_path path
+  """
+
+  def cut_video_method(self, start, duration):
+
+    # ffmpeg command to cut the video copying the original codecs without
+    # re-encoding
+    command = [
+        'ffmpeg',
+        '-i', self.input_path,
+        '-ss', str(start),  # Starting time
+        '-t', str(duration),  # Duration
+        # Draw the macroblocks and the vectors
+        '-vf', 'select=eq(n\,0)+eq(pict_type\,I),drawbox=x=0:y=0:w=iw:h=ih:color=red@0.5:enable=\'lte(t,0.1)\',drawgrid=width=32:height=32:thickness=2:color=green@0.5',
+        '-c:v', 'libx264',
+        '-crf', '23',
+        '-preset', 'ultrafast',
+        '-y',  
+        self.output_path
+     ]
+    # Execute the command
+    subprocess.run(command)
+
+  """
+  bit_rate_info is a function that let us to know the bit rate of the audio.
+
+  INPUT:
+    - None
+  OUTPUT:
+    - (int) bitRate: if the bit rate if is possible to know
+    - None: if the bit rate is not possible to know
+  """
+  
+
+  def bit_rate_info(self):
+
+    # In order to change the bit rate first we neew to know 
+    command_bit_rate = ['ffmpeg', '-i', self.input_path, 
+                          '-vn', '-f', 'null', '-']
+    res = subprocess.run(command_bit_rate, capture_output=True, text=True)
+    std_output = res.stderr
+
+    bitrate_start = std_output.find('bitrate:')
+    bitrate_end = std_output.find(' kb/s', bitrate_start)
+
+    if bitrate_start != -1 and bitrate_end != -1:
+      bitRate = std_output[bitrate_start:bitrate_end].split()[-1]
+      return bitRate
+      
+    return None
+
+  """
+  cut_video_audio extract from the video 50 seconds in mp3 or AAC, 
+  mono or stereo and let to change the bit_rate.
+
+  INPUT:
+    - (string) mono_stereo -> can be "mono" or "stereo".
+    - (float or int) bit_rate_facto -> factor of lower bit rate.
+    - (bool) codec -> change from mp3 to AAC codec if is true.
+  OUTPUT:
+    - saved the video in the ouput_path path
+   """
+ 
+
+  def cut_video_audio(self, mono_stereo, bit_rate_change, codec):
+
+    # Estos if nos permiten elegir si el audio es mono o estereo
+    channel = '1' if mono_stereo == "mono" else '2'
+      
+    # Get lower the bit rate
+    bit_rate_music = '44100' if bit_rate_change else self.bit_rate_info()
+    
+    # Change the codec if codec is True
+    if codec:
+      codec_option = '-c:a aac'
+      outpu_extension = 'aac'
+    else:
+      codec_option = '-c:a mp3'
+      output_extension = 'mp3'
+
+    command = [
+        'ffmpeg',
+        '-i', self.input_path, 
+        '-ss', '00:00:00', # Starting time
+        '-t', '00:00:50', # Ending time (50 seconds)
+        '-vn', # Only extract the audio
+        '-ac', channel, # Choose number of channels
+        '-ar', bit_rate_music, # Change the bit rate
+        codec_option, # Change the codec
+        f'{self.output_path}.{output_extension}'
+    ]
+
+    print(f'Command: {" ".join(command)}')
+
+    try:
+      subprocess.run(command, check=True, text=True)
+      print(f'File saved successfully in: {self.output_path}')
+      #print(f'ffmpeg exectuted error: {stderr}')
+    except subprocess.CalledProcessError as e:
+      print(f'Ffmpeg exectuted error: {e.stderr}')
+      print(f'Traceback completo: {e}')
+
+  """
+  reads_the_tracj says how many tracks does the container contains.
+
+  INPUT:
+    - (self) -> to relate with the input_path 
+  OUTPUT:
+    - print with the number and reutnr the number
+   """
+
+  
+  def reads_the_track(self):
+
+     command = [
+        'ffprobe', # Use ffprobe in order to obtain information
+        '-v', 'error',
+        '-select_streams', 'a:0',
+        '-show_entries', 'stream=index',
+        '-of', 'compact=p=0:nk=1',
+        self.input_path
+     ]
+
+     try:
+            result = subprocess.run(command, text=True, capture_output=True)
+            
+            # Verificar si result.stdout está vacío o contiene solo espacios en blanco
+            if result.stdout.strip():
+                num_tracks = int(result.stdout.strip()) + 1
+                print(f'The container contains {num_tracks} tracks.')
+                return num_tracks
+            else:
+                print('No audio tracks found in the container.')
+                return 0
+     except subprocess.CalledProcessError as e:
+            print(f'Error while getting track information: {e.stderr}')
+            return 0
+
+
+    
