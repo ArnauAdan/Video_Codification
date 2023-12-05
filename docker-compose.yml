@@ -1,0 +1,11 @@
+version: '3'
+
+services:
+  server-1:
+    image: pythonproject
+    ports:
+      - "8000:8000"
+    volumes:
+      - C:\Users\berna\PycharmProjects\pythonProject:C:\Users\berna\PycharmProjects\pythonProject
+    environment:
+      - VARIABLE_DE_ENTORNO=valor
